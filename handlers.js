@@ -173,63 +173,19 @@ Ejemplo: \`Leche 28\`
 // MANEJO DE TEXTO (AGREGAR PRODUCTOS)
 // ============================================
 
-bot.on('text', (ctx) => {
-    const texto = ctx.message.text;
-    if (texto.startsWith('/')) return;
-
-    const ultimoEspacio = texto.lastIndexOf(' ');
-    if (ultimoEspacio === -1 || ultimoEspacio === 0) {
-      ctx.reply('❌ Formato incorrecto.\n\nUsa: `Producto Precio`\nEjemplo: `Leche 28`', { parse_mode: 'Markdown' });
-      return;
-    }
-    const producto = texto.substring(0, ultimoEspacio).trim();
-    const precio = parseFloat(texto.substring(ultimoEspacio + 1));
-    if (isNaN(precio) || precio <= 0) {
-      ctx.reply('❌ El precio debe ser un número válido mayor a 0.');
-      return;
-    }
-
-    const fecha = new Date().toISOString();
-    const sql_insert = `INSERT INTO compras (fecha, producto, precio) VALUES (?, ?, ?)`;
-
-    db.run(sql_insert, [fecha, producto, precio], function(err) {
-      if (err) {
-        console.error(err.message);
-        ctx.reply('❌ Error al guardar en la base de datos.');
-        return;
-      }
-      
-      const nuevoID = this.lastID;
-      const sql_total = `SELECT SUM(precio) as total, COUNT(*) as cantidad 
-                           FROM compras 
-                           WHERE DATE(fecha) = DATE('now', 'localtime')`;
-                           
-      db.get(sql_total, [], (err, row) => {
-        if (err) {
-          ctx.replyWithMarkdown(`✅ *Añadido:* ${producto} - $${precio.toFixed(2)} (ID: ${nuevoID})\n\n(Error al calcular el total de hoy)`);
-          return;
-        }
-        
-        const total = row.total || 0;
-        const cantidad = row.cantidad || 0;
-        
-        const mensaje = `
-✅ *Añadido:* ${producto} - $${precio.toFixed(2)} (ID: ${nuevoID})
-
-📊 *Total de HOY:*
-💰 Total: $${total.toFixed(2)}
-🛍️ Productos: ${cantidad}
-        `;
-        
-        ctx.replyWithMarkdown(mensaje,
-          Markup.inlineKeyboard([
-            [Markup.button.callback('🗑️ Eliminar este item', `eliminar_${nuevoID}`)],
-            [Markup.button.callback('📋 Ver resumen hoy', 'ver_hoy')]
-          ])
-        );
-      });
-    });
-  });
+bot.on('text', async (ctx) => {
+  const texto = ctx.message.text;
+  if (texto.startsWith('/')) return;
+  const lines = texto.split('\n').filter(line => line.trim().length > 0);
+  
+  if (lines.length === 1) {
+    // Si es solo 1 línea, usa la lógica vieja (Producto Precio)
+    await handleSingleLine(ctx, lines[0]);
+  } else {
+    // Si son varias líneas, usa la lógica nueva (Producto - Precio)
+    await handleMultiLine(ctx, lines);
+  }
+});
 
   // ============================================
   // COMANDOS DE CONSULTA
