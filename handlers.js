@@ -1,11 +1,126 @@
 const { Markup } = require('telegraf');
 const db = require('./database.js');
 
-module.exports = (bot) => {
+// --- FUNCIÓN DE UNA SOLA LÍNEA ---
+// (Esta es tu lógica anterior, pero separada en una función)
+async function handleSingleLine(ctx, texto) {
+  const ultimoEspacio = texto.lastIndexOf(' ');
+  if (ultimoEspacio === -1 || ultimoEspacio === 0) {
+    ctx.reply('❌ Formato incorrecto.\n\nUsa: `Producto Precio`\nEjemplo: `Leche 28`', { parse_mode: 'Markdown' });
+    return;
+  }
+  const producto = texto.substring(0, ultimoEspacio).trim();
+  const precio = parseFloat(texto.substring(ultimoEspacio + 1));
+  if (isNaN(precio) || precio <= 0) {
+    ctx.reply('❌ El precio debe ser un número válido mayor a 0.');
+    return;
+  }
 
-  // ============================================
-  // COMANDOS PRINCIPALES
-  // ============================================
+  const fecha = new Date().toISOString();
+  const sql_insert = `INSERT INTO compras (fecha, producto, precio) VALUES (?, ?, ?)`;
+
+  db.run(sql_insert, [fecha, producto, precio], function(err) {
+    if (err) {
+      console.error(err.message);
+      return ctx.reply('❌ Error al guardar en la base de datos.');
+    }
+    
+    const nuevoID = this.lastID;
+    const sql_total = `SELECT SUM(precio) as total, COUNT(*) as cantidad 
+                         FROM compras 
+                         WHERE DATE(fecha) = DATE('now', 'localtime')`;
+                         
+    db.get(sql_total, [], (err, row) => {
+      if (err) {
+        return ctx.replyWithMarkdown(`✅ *Añadido:* ${producto} - $${precio.toFixed(2)} (ID: ${nuevoID})\n\n(Error al calcular el total de hoy)`);
+      }
+      
+      const total = row.total || 0;
+      const cantidad = row.cantidad || 0;
+      const mensaje = `
+✅ *Añadido:* ${producto} - $${precio.toFixed(2)} (ID: ${nuevoID})
+
+📊 *Total de HOY:*
+💰 Total: $${total.toFixed(2)}
+🛍️ Productos: ${cantidad}
+      `;
+      
+      ctx.replyWithMarkdown(mensaje,
+        Markup.inlineKeyboard([
+          [Markup.button.callback('🗑️ Eliminar este item', `eliminar_${nuevoID}`)],
+          [Markup.button.callback('📋 Ver resumen hoy', 'ver_hoy')]
+        ])
+      );
+    });
+  });
+}
+
+// --- NUEVA FUNCIÓN DE MÚLTIPLES LÍNEAS ---
+// (Esta procesa listas pegadas)
+async function handleMultiLine(ctx, lines) {
+  ctx.reply(`Procesando ${lines.length} productos... ⏳`);
+  
+  let productosGuardados = 0;
+  let totalGastado = 0;
+  let lineasFallidas = [];
+  const fecha = new Date().toISOString();
+  
+  // Usamos promesas para manejar todas las inserciones
+  const promises = lines.map(line => {
+    // Usamos una expresión regular para "partir" por guion, guion largo, o guion medio
+    const parts = line.split(/[-–—]/); 
+    
+    if (parts.length !== 2) {
+      lineasFallidas.push(line);
+      return Promise.resolve(); // Resuelve promesa vacía
+    }
+    
+    const producto = parts[0].trim();
+    const precio = parseFloat(parts[1].trim());
+
+    if (!producto || isNaN(precio) || precio <= 0) {
+      lineasFallidas.push(line);
+      return Promise.resolve();
+    }
+    
+    // Si la línea es válida, la añadimos a la DB
+    return new Promise((resolve, reject) => {
+      const sql = `INSERT INTO compras (fecha, producto, precio) VALUES (?, ?, ?)`;
+      db.run(sql, [fecha, producto, precio], (err) => {
+        if (err) {
+          console.error(err.message);
+          lineasFallidas.push(line); // Falla si hay error de DB
+        } else {
+          productosGuardados++;
+          totalGastado += precio;
+        }
+        resolve(); // Siempre resuelve para que Promise.all termine
+      });
+    });
+  });
+  
+  // Espera a que TODAS las promesas de inserción terminen
+  await Promise.all(promises);
+  
+  // Construye el mensaje de resumen
+  let mensajeResumen = `
+*--- Resumen de Importación ---*
+
+✅ *Productos guardados:* ${productosGuardados}
+💰 *Total añadido:* $${totalGastado.toFixed(2)}
+  `;
+  
+  if (lineasFallidas.length > 0) {
+    mensajeResumen += `
+⚠️ *No pude entender estas ${lineasFallidas.length} líneas:*
+${lineasFallidas.join('\n')}
+    `;
+  }
+  
+  ctx.replyWithMarkdown(mensajeResumen);
+}
+
+module.exports = (bot) => {
 
   bot.start((ctx) => {
     const mensaje = `
