@@ -1,11 +1,6 @@
-// Archivo: handlers.js
-
-// Importamos las herramientas que necesitamos
 const { Markup } = require('telegraf');
-// ¡Importamos nuestra conexión a la base de datos!
 const db = require('./database.js');
 
-// Exportamos una función que recibe el 'bot' como parámetro
 module.exports = (bot) => {
 
   // ============================================

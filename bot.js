@@ -1,9 +1,7 @@
-// Archivo: bot.js
-
-// Archivo: bot.js (Versión para Webhook)
+require('dotenv').config(); // ¡AGREGAR ESTA LÍNEA AL INICIO!
 
 const { Telegraf } = require('telegraf');
-const express = require('express'); // ¡Importamos Express!
+const express = require('express');
 const db = require('./database.js');
 const registerHandlers = require('./handlers.js');
 
@@ -11,12 +9,10 @@ const registerHandlers = require('./handlers.js');
 // --- ¡¡CONFIGURACIÓN DE DESPLIEGUE!! ---
 // ============================================
 
-// ¡¡DEBES REEMPLAZAR ESTOS VALORES!!
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
 const TOKEN = process.env.TOKEN;
 const URL = process.env.URL;
-
 
 const bot = new Telegraf(TOKEN);
 
