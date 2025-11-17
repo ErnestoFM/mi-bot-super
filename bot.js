@@ -1,18 +1,20 @@
-require('dotenv').config(); // ¡AGREGAR ESTA LÍNEA AL INICIO!
+require('dotenv').config(); 
 
 const { Telegraf } = require('telegraf');
 const express = require('express');
 const db = require('./database.js');
 const registerHandlers = require('./handlers.js');
 
-// ============================================
-// --- ¡¡CONFIGURACIÓN DE DESPLIEGUE!! ---
-// ============================================
-
 const PORT = process.env.PORT || 3000;
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 1. Lee el ID
 const TOKEN = process.env.TOKEN;
 const URL = process.env.URL;
+
+// Validar que las variables existan
+if (!ADMIN_USER_ID || !TOKEN || !URL) {
+  console.error("¡ERROR! Faltan variables de entorno. Revisa ADMIN_USER_ID, TOKEN, y URL.");
+  process.exit(1); // Detiene el bot si faltan
+}
 
 const bot = new Telegraf(TOKEN);
 
@@ -20,39 +22,56 @@ const bot = new Telegraf(TOKEN);
 const RUTA_SECRETA = `/telegraf/${bot.token}`;
 
 // ============================================
+// --- ¡¡EL FIREWALL!! (Paso que faltaba) ---
+// ============================================
+//
+// Esto se ejecuta ANTES que registerHandlers.
+// Revisa CADA mensaje, botón o comando.
+//
+bot.use((ctx, next) => {
+  // 2. Compara el ID del mensaje con tu ID
+  if (ctx.from && ctx.from.id && String(ctx.from.id) === String(ADMIN_USER_ID)) {
+    // Si el ID coincide con el tuyo, deja que el bot continúe
+    // procesando el comando (pasa a registerHandlers).
+    return next();
+  } else {
+    // Si el ID NO coincide, detiene todo y responde.
+    // Opcional: puedes quitar el .reply() para que el bot
+    // simplemente ignore a los extraños en silencio.
+    console.warn(`Bloqueado: Intento de acceso de ID ${ctx.from ? ctx.from.id : 'desconocido'}`);
+    return ctx.reply('🔒 Lo siento, este es un bot privado.');
+  }
+});
+
+// ============================================
 // INICIAR BOT Y SERVIDOR
 // ============================================
 
-// 1. Crear la instancia del bot PRIMERO
-
-// 2. Crear la instancia del servidor Express
 const app = express();
-app.use(express.json()); // Middleware para que Telegraf procese los JSON de Telegram
+app.use(express.json()); 
 
-// 3. Registrar todos los "handlers" (comandos, etc.)
-// ¡Esto no cambia! La lógica está separada.
+// 3. Registrar handlers (SÓLO se ejecuta si el firewall pasa)
 registerHandlers(bot);
 
-// 4. Conectar Telegraf con Express en la ruta secreta
-// Express escuchará en esta ruta, y Telegraf procesará los mensajes
 app.use(bot.webhookCallback(RUTA_SECRETA));
 
-// 5. Decirle a Telegram DÓNDE está nuestro Webhook
-// Esto se ejecuta CADA VEZ que el servidor arranca,
-// asegurando que Telegram siempre sepa la URL correcta.
 bot.telegram.setWebhook(`${URL}${RUTA_SECRETA}`);
 
 // 6. Iniciar el servidor Express
 app.listen(PORT, () => {
-  console.log(`🤖 ¡Bot del Súper (con Webhook) iniciado!`);
+  console.log(`🤖 ¡Bot del Súper (con Webhook y Firewall) iniciado!`);
   console.log(`Servidor escuchando en el puerto ${PORT}`);
   console.log(`Ruta del Webhook: ${RUTA_SECRETA}`);
+  console.log(`✅ ¡Seguridad activada! Solo el usuario ${ADMIN_USER_ID} puede usarlo.`);
 });
 
-// 7. Manejo de errores (no cambia)
+// 7. Manejo de errores
 bot.catch((err, ctx) => {
   console.error('Error en el bot:', err);
-  ctx.reply('❌ Ocurrió un error inesperado. Intenta de nuevo.');
+  // Solo te responde el error a ti
+  if (ctx.from && String(ctx.from.id) === String(ADMIN_USER_ID)) {
+    ctx.reply('❌ Ocurrió un error inesperado. Revisa la consola.');
+  }
 });
 
 // 8. Manejo de cierre graceful (no cambia)
