@@ -1,0 +1,10 @@
+# Dependencias
+/node_modules
+
+# Archivos de la Base de Datos
+*.db
+*.db-journal
+
+# Logs y archivos del sistema
+npm-debug.log
+.DS_Store

@@ -1,0 +1,19 @@
+{
+  "name": "mi-bot-super",
+  "version": "1.0.0",
+  "description": "bot de telegram para mis compras.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node bot.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.1.0",
+    "sqlite3": "^5.1.7",
+    "telegraf": "^4.16.3"
+  }
+}
