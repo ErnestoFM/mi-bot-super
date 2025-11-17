@@ -8,3 +8,6 @@
 # Logs y archivos del sistema
 npm-debug.log
 .DS_Store
+
+
+.env
