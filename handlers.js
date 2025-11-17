@@ -67,16 +67,19 @@ async function handleMultiLine(ctx, lines) {
   
   // Usamos promesas para manejar todas las inserciones
   const promises = lines.map(line => {
-    // Usamos una expresión regular para "partir" por guion, guion largo, o guion medio
-    const parts = line.split(/[-–—]/); 
     
-    if (parts.length !== 2) {
+    // --- INICIO DE LA CORRECCIÓN ---
+    // Ya no buscamos guion, usamos la lógica del "último espacio"
+    const ultimoEspacio = line.lastIndexOf(' ');
+    
+    if (ultimoEspacio === -1 || ultimoEspacio === 0) {
       lineasFallidas.push(line);
       return Promise.resolve(); // Resuelve promesa vacía
     }
     
-    const producto = parts[0].trim();
-    const precio = parseFloat(parts[1].trim());
+    const producto = line.substring(0, ultimoEspacio).trim();
+    const precio = parseFloat(line.substring(ultimoEspacio + 1).trim());
+    // --- FIN DE LA CORRECCIÓN ---
 
     if (!producto || isNaN(precio) || precio <= 0) {
       lineasFallidas.push(line);
@@ -84,7 +87,7 @@ async function handleMultiLine(ctx, lines) {
     }
     
     // Si la línea es válida, la añadimos a la DB
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const sql = `INSERT INTO compras (fecha, producto, precio) VALUES (?, ?, ?)`;
       db.run(sql, [fecha, producto, precio], (err) => {
         if (err) {
@@ -113,7 +116,7 @@ async function handleMultiLine(ctx, lines) {
   if (lineasFallidas.length > 0) {
     mensajeResumen += `
 ⚠️ *No pude entender estas ${lineasFallidas.length} líneas:*
-${lineasFallidas.join('\n')}
+${lineasFallidas.map(l => ` - \`${l}\``).join('\n')}
     `;
   }
   
