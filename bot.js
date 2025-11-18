@@ -70,26 +70,16 @@ app.listen(PORT, () => {
 
 // 7. Manejo de errores
 bot.catch((err, ctx) => {
-  console.error('Error en el bot:', err);
-  // Solo te responde el error a ti
-  if (ctx.from && String(ctx.from.id) === String(ADMIN_USER_ID)) {
-    ctx.reply('❌ Ocurrió un error inesperado. Revisa la consola.');
-  }
+  console.error('❌ Error en el bot:', err);
 });
 
-// 8. Manejo de cierre graceful (no cambia)
+// 8. Manejo de cierre graceful (webhooks no usan bot.launch())
 process.once('SIGINT', () => {
-  bot.stop('SIGINT');
-  db.close((err) => {
-    if (err) return console.error(err.message);
-    console.log('Conexión de base de datos cerrada.');
-  });
+  console.log('\n👋 Bot detenido por SIGINT');
+  process.exit(0);
 });
 
 process.once('SIGTERM', () => {
-  bot.stop('SIGTERM');
-  db.close((err) => {
-    if (err) return console.error(err.message);
-    console.log('Conexión de base de datos cerrada.');
-  });
+  console.log('\n👋 Bot detenido por SIGTERM');
+  process.exit(0);
 });
