@@ -26,6 +26,11 @@ db.serialize(() => {
       producto TEXT NOT NULL UNIQUE,
       categoria TEXT NOT NULL
   )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS lista_mandado (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      producto TEXT NOT NULL UNIQUE
+  )`);
 });
 
 // ¡La línea más importante! Exportamos la conexión.

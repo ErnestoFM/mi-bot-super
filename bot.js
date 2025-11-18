@@ -1,4 +1,4 @@
-require('dotenv').config(); 
+require('dotenv').config();
 
 const { Telegraf } = require('telegraf');
 const express = require('express');
@@ -6,13 +6,18 @@ const db = require('./database.js');
 const registerHandlers = require('./handlers.js');
 
 const PORT = process.env.PORT || 3000;
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID; // 1. Lee el ID
+
+// lee la lista de IDs desde ALLOWED_USER_IDS o desde ADMIN_USER_ID (compatibilidad)
+const ALLOWED_IDS_STRING = process.env.ALLOWED_USER_IDS || process.env.ADMIN_USER_ID || '';
+const ALLOWED_USER_IDS = ALLOWED_IDS_STRING ? ALLOWED_IDS_STRING.split(',').map(id => id.trim()) : [];
+
 const TOKEN = process.env.TOKEN;
 const URL = process.env.URL;
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID || (ALLOWED_USER_IDS.length ? ALLOWED_USER_IDS[0] : null);
 
 // Validar que las variables existan
-if (!ADMIN_USER_ID || !TOKEN || !URL) {
-  console.error("¡ERROR! Faltan variables de entorno. Revisa ADMIN_USER_ID, TOKEN, y URL.");
+if (ALLOWED_USER_IDS.length === 0 || !TOKEN || !URL) {
+  console.error("¡ERROR! Faltan variables de entorno. Revisa ADMIN_USER_ID (o ALLOWED_USER_IDS), TOKEN y URL.");
   process.exit(1); // Detiene el bot si faltan
 }
 
@@ -29,16 +34,14 @@ const RUTA_SECRETA = `/telegraf/${bot.token}`;
 // Revisa CADA mensaje, botón o comando.
 //
 bot.use((ctx, next) => {
-  // 2. Compara el ID del mensaje con tu ID
-  if (ctx.from && ctx.from.id && String(ctx.from.id) === String(ADMIN_USER_ID)) {
-    // Si el ID coincide con el tuyo, deja que el bot continúe
-    // procesando el comando (pasa a registerHandlers).
-    return next();
+  const userId = ctx.from ? String(ctx.from.id) : null;
+
+  // Ahora comprueba si el ID del usuario está *en la lista*
+  if (userId && ALLOWED_USER_IDS.includes(userId)) {
+    return next(); // Si está en la lista, déjalo pasar
   } else {
-    // Si el ID NO coincide, detiene todo y responde.
-    // Opcional: puedes quitar el .reply() para que el bot
-    // simplemente ignore a los extraños en silencio.
-    console.warn(`Bloqueado: Intento de acceso de ID ${ctx.from ? ctx.from.id : 'desconocido'}`);
+    // Si no, bloquéalo
+    console.warn(`Bloqueado: Intento de acceso de ID ${userId || 'desconocido'}`);
     return ctx.reply('🔒 Lo siento, este es un bot privado.');
   }
 });
