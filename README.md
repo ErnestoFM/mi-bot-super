@@ -15,13 +15,17 @@ Este proyecto está diseñado para ser desplegado en **Railway** y utiliza almac
 - `/mes` - Muestra un resumen de gastos de los últimos 30 días.
 - `/top [limite]` - Muestra los productos más comprados (ej. `/top 5`).
 - `/buscar [producto]` - Busca un producto en el historial de compras.
-- `/grafica` - Genera una imagen de los gastos de la última semana.
 - `/exportar` - Exporta las últimas 100 compras como un archivo `.csv`.
 
 Para registrar un producto, simplemente envía un mensaje con el formato:
 `Producto Precio` (Ej: `Leche 28`)
 
 ---
+## Ejemplo de Funcionlidad
+<img width="331" height="269" alt="{EF19E0C0-8F39-45E2-87A2-53D3028CFF1C}" src="https://github.com/user-attachments/assets/b30bb901-6b26-4d22-b8a5-e68d522ebc83" />
+
+## Servidor Corriento con wwebhook en railway integrado con github
+<img width="304" height="175" alt="{A2E1049F-79F9-4C27-8E74-6F819ADB1074}" src="https://github.com/user-attachments/assets/7c3b5f9d-f096-4c20-9181-03cfa906e4dc" />
 
 ## 🔒 Seguridad
 
