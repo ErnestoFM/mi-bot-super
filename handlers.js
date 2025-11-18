@@ -202,9 +202,10 @@ module.exports = (bot) => {
 📋 *Lista de Comandos:*
 
 *🛒 Lista de Mandado:*
-- \`/mandado [Item1] [Item2]...\` - Añade items a la lista.
-- \`/mandado\` (con varias líneas) - Añade una lista.
+- \`/mandado [Item]\` - Añade UN item a la lista.
+- \`/mandado\` (con varias líneas) - Añade una lista (cada línea = 1 item).
 - \`/faltan\` - Muestra items pendientes de la lista.
+- \`/quitar [producto]\` - Elimina un producto de la lista.
 - \`/limpiarlista\` - Borra toda la lista del mandado.
 
 *💰 Registro de Compras:*
@@ -226,12 +227,25 @@ module.exports = (bot) => {
   });
 
   bot.command('mandado', (ctx) => {
-    const texto = ctx.message.text.replace('/mandado', '').trim();
-    if (!texto) {
-      return ctx.reply('Uso: /mandado [Producto 1] [Producto 2]...\n(O envía /mandado seguido de una lista en varias líneas)');
+    // Texto que viene después de /mandado.
+    const textoCompleto = ctx.message.text.replace('/mandado', '').trim();
+    
+    if (!textoCompleto) {
+      return ctx.reply('Uso: /mandado [Producto]\n(O envía /mandado seguido de una lista en varias líneas)');
     }
 
-    const productos = texto.split(/\s+|\n+/).filter(p => p.trim().length > 0);
+    let productos;
+
+    // Detectamos si el usuario envió texto en múltiples líneas
+    const lines = textoCompleto.split('\n').filter(line => line.trim().length > 0);
+
+    if (lines.length > 1) {
+        // Modo Lista (Varias líneas): Separamos cada línea como un item
+        productos = lines;
+    } else {
+        // Modo Rápido (Una sola línea): Todo el texto es UN solo item
+        productos = [textoCompleto];
+    }
     
     if (productos.length === 0) {
       return ctx.reply('No encontré productos para añadir. Uso: /mandado Leche Pan');
@@ -242,7 +256,10 @@ module.exports = (bot) => {
 
     const promises = productos.map(producto => {
       return new Promise(resolve => {
-        const prodCapitalizado = producto.charAt(0).toUpperCase() + producto.slice(1).toLowerCase();
+        // Capitalizamos solo la primera palabra para que se vea bien
+        const trimmedProduct = producto.trim();
+        const prodCapitalizado = trimmedProduct.charAt(0).toUpperCase() + trimmedProduct.slice(1);
+        
         db.run(sql, [prodCapitalizado], function(err) {
           if (!err && this.changes > 0) {
             addedCount++;
@@ -279,6 +296,34 @@ module.exports = (bot) => {
         return ctx.reply('❌ Error al limpiar la lista.');
       }
       ctx.reply(`✅ Lista del mandado eliminada. ¡Todo limpio!`);
+    });
+  });
+
+  /**
+   * Elimina un producto de la lista del mandado usando parte del nombre.
+   * Uso: /quitar [producto a borrar]
+   */
+  bot.command('quitar', (ctx) => {
+    const termino = ctx.message.text.replace('/quitar', '').trim();
+    
+    if (!termino) {
+      return ctx.reply('❌ Debes especificar el producto a quitar.\nEjemplo: `/quitar pan`', { parse_mode: 'Markdown' });
+    }
+    
+    // Usamos LIKE para que el usuario no tenga que escribir el nombre exacto
+    const sql = `DELETE FROM lista_mandado WHERE LOWER(producto) LIKE LOWER(?)`;
+    
+    db.run(sql, [`%${termino}%`], function(err) {
+      if (err) {
+        console.error(err.message);
+        return ctx.reply('❌ Error al intentar eliminar el producto de la lista.');
+      }
+      
+      if (this.changes === 0) {
+        ctx.replyWithMarkdown(`⚠️ No se encontró ningún producto en la lista que contenga: *${termino}*`);
+      } else {
+        ctx.reply(`✅ Producto(s) que contenían "${termino}" eliminado(s) de la lista del mandado.`);
+      }
     });
   });
 
@@ -449,6 +494,29 @@ ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', mon
       if (err) return ctx.answerCbQuery('❌ Error al eliminar');
       ctx.answerCbQuery('✅ Eliminado');
       ctx.editMessageText(`✅ Compra eliminada (ID: ${id})`);
+    });
+  });
+
+  bot.command('quitar', (ctx) => {
+    const termino = ctx.message.text.replace('/quitar', '').trim();
+    if (!termino) {
+      return ctx.reply('❌ Debes especificar el producto a quitar.\nEjemplo: `/quitar pan`', { parse_mode: 'Markdown' });
+    }
+
+    // Usamos LIKE para que el usuario no tenga que escribir el nombre exacto
+    const sql = `DELETE FROM lista_mandado WHERE LOWER(producto) LIKE LOWER(?)`;
+
+    db.run(sql, [`%${termino}%`], function(err) {
+      if (err) {
+        console.error(err.message);
+        return ctx.reply('❌ Error al intentar eliminar el producto de la lista.');
+      }
+      
+      if (this.changes === 0) {
+        ctx.replyWithMarkdown(`⚠️ No se encontró ningún producto en la lista que contenga: *${termino}*`);
+      } else {
+        ctx.reply(`✅ Producto(s) que contenían "${termino}" eliminado(s) de la lista del mandado.`);
+      }
     });
   });
 
