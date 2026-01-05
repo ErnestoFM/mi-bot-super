@@ -342,7 +342,7 @@ module.exports = (bot) => {
   bot.command('totalhoy', (ctx) => {
     const sql = `SELECT SUM(precio) as total, COUNT(*) as cantidad 
                    FROM compras 
-                   WHERE DATE(fecha) = DATE('now', 'localtime')`;
+                   WHERE DATE(fecha) = CURRENT_DATE`;
     db.get(sql, [], (err, row) => {
       if (err) return ctx.reply('❌ Error al consultar.');
       const total = row.total || 0;

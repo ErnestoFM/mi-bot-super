@@ -1,37 +1,69 @@
-// Archivo: database.js
+const { Pool } = require('pg');
 
-const sqlite3 = require('sqlite3').verbose();
-
-// Conexión a la base de datos
-const DB_PATH = process.env.DB_PATH || './super.db';
-
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    return console.error(err.message);
+// Render nos da la URL completa en una variable de entorno
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Requerido para conexiones seguras en Render
   }
-  console.log('Conectado a la base de datos SQLite.');
 });
 
-// Crea las tablas si no existen
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS compras (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      fecha TEXT NOT NULL,
-      producto TEXT NOT NULL,
-      precio REAL NOT NULL
-  )`);
+// Función para 
+//  las tablas si no existen
+const initDB = async () => {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS compras (
+        id SERIAL PRIMARY KEY,
+        fecha TIMESTAMPTZ NOT NULL,
+        producto TEXT NOT NULL,
+        precio DECIMAL(10,2) NOT NULL
+      );
+      
+      CREATE TABLE IF NOT EXISTS lista_mandado (
+        id SERIAL PRIMARY KEY,
+        producto TEXT NOT NULL UNIQUE
+      );
+    `);
+    console.log("Tablas verificadas en PostgreSQL");
+  } catch (err) {
+    console.error("Error inicializando DB:", err);
+  } finally {
+    client.release();
+  }
+};
 
-  db.run(`CREATE TABLE IF NOT EXISTS categorias (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      producto TEXT NOT NULL UNIQUE,
-      categoria TEXT NOT NULL
-  )`);
+initDB();
 
-  db.run(`CREATE TABLE IF NOT EXISTS lista_mandado (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      producto TEXT NOT NULL UNIQUE
-  )`);
-});
+// Adaptamos el objeto db para que use comandos similares a sqlite3 en tus handlers
+module.exports = {
+  // Para INSERT/DELETE
+  run: (sql, params, callback) => {
+    // Convertimos los "?" de SQLite a "$1, $2" de Postgres
+    let pgSql = sql;
+    params.forEach((_, i) => { pgSql = pgSql.replace('?', `$${i + 1}`); });
 
-// ¡La línea más importante! Exportamos la conexión.
-module.exports = db;
+    pool.query(pgSql, params)
+      .then(res => callback && callback.call({ lastID: res.oid, changes: res.rowCount }, null))
+      .catch(err => callback && callback(err));
+  },
+  // Para SELECT de una fila
+  get: (sql, params, callback) => {
+    let pgSql = sql;
+    params.forEach((_, i) => { pgSql = pgSql.replace('?', `$${i + 1}`); });
+
+    pool.query(pgSql, params)
+      .then(res => callback(null, res.rows[0]))
+      .catch(err => callback(err));
+  },
+  // Para SELECT de varias filas
+  all: (sql, params, callback) => {
+    let pgSql = sql;
+    params.forEach((_, i) => { pgSql = pgSql.replace('?', `$${i + 1}`); });
+
+    pool.query(pgSql, params)
+      .then(res => callback(null, res.rows))
+      .catch(err => callback(err));
+  }
+};
